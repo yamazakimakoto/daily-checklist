@@ -1,4 +1,4 @@
-const CACHE_NAME = 'checklist-v11';
+const CACHE_NAME = 'checklist-v12';
 const ASSETS = [
   'index.html',
   'style.css',
