@@ -54,11 +54,21 @@
         <tbody id="gridBody"></tbody>
       </table>
     </div>
-    <!-- 月の反省 -->
-    <div class="month-review-section">
-      <h2>今月の反省・メモ</h2>
-      <textarea id="monthReview" maxlength="1000" placeholder="今月の反省・メモを入力（1000字以内）"></textarea>
-      <div class="char-count"><span id="reviewCharCount">0</span>/1000</div>
+    <!-- 今日のTODO ＆ 今月のメモ・反省（2カラム） -->
+    <div class="bottom-section">
+      <div class="today-todo-section">
+        <div class="section-header">
+          <h2>今日のＴＯＤＯ <span id="todayTodoDate" class="today-date"></span></h2>
+          <button id="copyTodoBtn" class="btn-copy-todo" title="メモ帳にコピー">📋 メモ帳にコピー</button>
+        </div>
+        <textarea id="todayTodo" maxlength="1000" placeholder="今日のＴＯＤＯを入力（1000字以内）"></textarea>
+        <div class="char-count"><span id="todoCharCount">0</span>/1000</div>
+      </div>
+      <div class="month-review-section">
+        <h2>今月のメモ・反省</h2>
+        <textarea id="monthReview" maxlength="1000" placeholder="今月のメモ・反省を入力（1000字以内）"></textarea>
+        <div class="char-count"><span id="reviewCharCount">0</span>/1000</div>
+      </div>
     </div>
     <div class="reflection-section">
       <h2>振り返り</h2>
@@ -89,8 +99,14 @@
       <div class="char-count"><span id="mobileCharCount">0</span>/200</div>
     </div>
     <div class="mobile-reflection">
-      <h3>今月の反省・メモ</h3>
-      <textarea id="mobileMonthReview" maxlength="1000" placeholder="今月の反省・メモを入力（1000字以内）"></textarea>
+      <h3>今日のＴＯＤＯ <span id="mobileTodayTodoDate" class="today-date"></span></h3>
+      <textarea id="mobileTodayTodo" maxlength="1000" placeholder="今日のＴＯＤＯを入力（1000字以内）"></textarea>
+      <button id="mobileCopyTodoBtn" class="btn-copy-todo btn-copy-todo-mobile">📋 メモ帳にコピー</button>
+      <div class="char-count"><span id="mobileTodoCharCount">0</span>/1000</div>
+    </div>
+    <div class="mobile-reflection">
+      <h3>今月のメモ・反省</h3>
+      <textarea id="mobileMonthReview" maxlength="1000" placeholder="今月のメモ・反省を入力（1000字以内）"></textarea>
       <div class="char-count"><span id="mobileReviewCharCount">0</span>/1000</div>
     </div>
   </section>

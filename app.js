@@ -20,7 +20,8 @@ let state = {
   checks: {},
   reflections: {},
   monthGoals: {},
-  monthReviews: {}
+  monthReviews: {},
+  todos: {} // YYYY-MM-DD → text
 };
 
 // ===== Storage (IndexedDB primary + localStorage backup) =====
@@ -106,7 +107,8 @@ function loadData() {
     checks: storageKey('checks'),
     reflections: storageKey('reflections'),
     goal: storageKey('goal'),
-    review: storageKey('review')
+    review: storageKey('review'),
+    todos: globalKey('todos')
   };
 
   return Promise.all([
@@ -114,7 +116,8 @@ function loadData() {
     dualLoad(keys.checks),
     dualLoad(keys.reflections),
     dualLoad(keys.goal),
-    dualLoad(keys.review)
+    dualLoad(keys.review),
+    dualLoad(keys.todos)
   ]).then(function(results) {
     var mk = monthKey();
 
@@ -146,6 +149,13 @@ function loadData() {
 
     // Review
     state.monthReviews[mk] = results[4] || '';
+
+    // Todos (global, keyed by YYYY-MM-DD)
+    if (results[5]) {
+      try { state.todos = JSON.parse(results[5]); } catch(e) { state.todos = {}; }
+    } else {
+      state.todos = {};
+    }
   }).catch(function(e) {
     console.error('データ読み込みエラー:', e);
     state.items = DEFAULT_ITEMS.slice();
@@ -154,6 +164,7 @@ function loadData() {
     state.reflections[mk] = {};
     state.monthGoals[mk] = '';
     state.monthReviews[mk] = '';
+    state.todos = {};
   });
 }
 
@@ -176,6 +187,95 @@ function saveGoal() {
 function saveReview() {
   dualSave(storageKey('review'), state.monthReviews[monthKey()] || '');
   markUnsavedBackup();
+}
+function saveTodos() {
+  dualSave(globalKey('todos'), JSON.stringify(state.todos || {}));
+  markUnsavedBackup();
+}
+
+// ===== Today's TODO =====
+function todayDateKey() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function todayDateLabel() {
+  var d = new Date();
+  return (d.getMonth() + 1) + '/' + d.getDate() + '(' + DOW[d.getDay()] + ')';
+}
+
+function getTodayTodo() {
+  return state.todos[todayDateKey()] || '';
+}
+
+function setTodayTodo(text) {
+  var key = todayDateKey();
+  if (text) state.todos[key] = text;
+  else delete state.todos[key];
+  saveTodos();
+}
+
+function renderTodayTodo() {
+  var val = getTodayTodo();
+  var label = todayDateLabel();
+  var pcTa = document.getElementById('todayTodo');
+  if (pcTa) {
+    pcTa.value = val;
+    document.getElementById('todoCharCount').textContent = val.length;
+    document.getElementById('todayTodoDate').textContent = label;
+  }
+  var mTa = document.getElementById('mobileTodayTodo');
+  if (mTa) {
+    mTa.value = val;
+    document.getElementById('mobileTodoCharCount').textContent = val.length;
+    document.getElementById('mobileTodayTodoDate').textContent = label;
+  }
+}
+
+function copyTodoToNotes() {
+  var text = (getTodayTodo() || '').trim();
+  if (!text) {
+    alert('今日のＴＯＤＯが空です。');
+    return;
+  }
+  var fullText = '今日のＴＯＤＯ ' + todayDateLabel() + '\n' + text;
+
+  // 1) Try Web Share API (iOS Safari: share sheet includes Notes)
+  if (navigator.share) {
+    navigator.share({ title: '今日のＴＯＤＯ ' + todayDateLabel(), text: fullText })
+      .catch(function() { fallbackClipboard(fullText); });
+    return;
+  }
+  fallbackClipboard(fullText);
+}
+
+function fallbackClipboard(text) {
+  // 2) Clipboard API
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      alert('クリップボードにコピーしました。\nメモ帳を開いて貼り付けてください。');
+    }).catch(function() { execCopy(text); });
+    return;
+  }
+  execCopy(text);
+}
+
+function execCopy(text) {
+  // 3) Legacy fallback
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.left = '-9999px';
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand('copy');
+    alert('クリップボードにコピーしました。\nメモ帳を開いて貼り付けてください。');
+  } catch(e) {
+    alert('コピーに失敗しました。');
+  }
+  document.body.removeChild(ta);
 }
 
 // Track if data has changed since last full backup
@@ -684,6 +784,7 @@ function renderAll() {
   renderPC();
   renderMobile();
   renderGoalBar();
+  renderTodayTodo();
   updateMonthlyRate();
 }
 
@@ -749,12 +850,12 @@ function exportExcel() {
     ['今月の目標'],
     [state.monthGoals[monthKey()] || ''],
     [],
-    ['今月の反省・メモ'],
+    ['今月のメモ・反省'],
     [state.monthReviews[monthKey()] || '']
   ];
   var ws2 = XLSX.utils.aoa_to_sheet(goalRows);
   ws2['!cols'] = [{ wch: 60 }];
-  XLSX.utils.book_append_sheet(wb, ws2, '目標・反省');
+  XLSX.utils.book_append_sheet(wb, ws2, '目標・メモ');
 
   // Sheet 3: Reflections
   var refRows = [['日付', '振り返り']];
@@ -795,7 +896,7 @@ function exportAllExcel(opts) {
     XLSX.utils.book_append_sheet(wb, wsItems, '_項目一覧');
 
     // Sheet 2: All goals & reviews summary
-    var grRows = [['年月', '今月の目標', '今月の反省・メモ']];
+    var grRows = [['年月', '今月の目標', '今月のメモ・反省']];
 
     // Sheet 3: All reflections summary
     var refRows = [['年月日', '曜日', '振り返り']];
@@ -843,7 +944,7 @@ function exportAllExcel(opts) {
 
       var wsGR = XLSX.utils.aoa_to_sheet(grRows);
       wsGR['!cols'] = [{ wch: 10 }, { wch: 50 }, { wch: 50 }];
-      XLSX.utils.book_append_sheet(wb, wsGR, '_目標・反省一覧');
+      XLSX.utils.book_append_sheet(wb, wsGR, '_目標・メモ一覧');
 
       var wsRef = XLSX.utils.aoa_to_sheet(refRows);
       wsRef['!cols'] = [{ wch: 14 }, { wch: 6 }, { wch: 60 }];
@@ -917,10 +1018,10 @@ function importAllExcel(file) {
         return;
       }
 
-      // Parse goals/reviews
+      // Parse goals/reviews (新形式 "_目標・メモ一覧" / 旧形式 "_目標・反省一覧" を両対応)
       var goalsByMonth = {};
       var reviewsByMonth = {};
-      var wsGR = wb.Sheets['_目標・反省一覧'];
+      var wsGR = wb.Sheets['_目標・メモ一覧'] || wb.Sheets['_目標・反省一覧'];
       if (wsGR) {
         var grRows = XLSX.utils.sheet_to_json(wsGR, { header: 1, defval: '' });
         for (var r = 1; r < grRows.length; r++) {
@@ -998,7 +1099,7 @@ function importAllExcel(file) {
         + '■ チェックデータ: ' + totalChecks + '件\n'
         + '■ 振り返り: ' + totalRef + '日分\n'
         + '■ 目標: ' + Object.keys(goalsByMonth).filter(function(k){return goalsByMonth[k];}).length + 'ヶ月分\n'
-        + '■ 反省・メモ: ' + Object.keys(reviewsByMonth).filter(function(k){return reviewsByMonth[k];}).length + 'ヶ月分\n\n'
+        + '■ メモ・反省: ' + Object.keys(reviewsByMonth).filter(function(k){return reviewsByMonth[k];}).length + 'ヶ月分\n\n'
         + '⚠️ 現在のデータは全て上書きされます。よろしいですか？';
 
       if (!confirm(msg)) return;
@@ -1167,7 +1268,7 @@ function importExcel(file) {
         + '■ チェックデータ: ' + Object.keys(newChecks).length + '件\n'
         + '■ 振り返り: ' + Object.keys(newReflections).length + '日分\n'
         + '■ 目標: ' + (newGoal ? 'あり' : 'なし') + '\n'
-        + '■ 反省・メモ: ' + (newReview ? 'あり' : 'なし') + '\n\n'
+        + '■ メモ・反省: ' + (newReview ? 'あり' : 'なし') + '\n\n'
         + '現在のデータは上書きされます。よろしいですか？';
 
       if (!confirm(msg)) return;
@@ -1357,6 +1458,24 @@ function init() {
     var p = document.getElementById('monthReview');
     if (p) { p.value = this.value; document.getElementById('reviewCharCount').textContent = this.value.length; }
   });
+
+  // Today's TODO (PC)
+  document.getElementById('todayTodo').addEventListener('input', function() {
+    setTodayTodo(this.value);
+    document.getElementById('todoCharCount').textContent = this.value.length;
+    var m = document.getElementById('mobileTodayTodo');
+    if (m) { m.value = this.value; document.getElementById('mobileTodoCharCount').textContent = this.value.length; }
+  });
+  document.getElementById('copyTodoBtn').addEventListener('click', copyTodoToNotes);
+
+  // Today's TODO (Mobile)
+  document.getElementById('mobileTodayTodo').addEventListener('input', function() {
+    setTodayTodo(this.value);
+    document.getElementById('mobileTodoCharCount').textContent = this.value.length;
+    var p = document.getElementById('todayTodo');
+    if (p) { p.value = this.value; document.getElementById('todoCharCount').textContent = this.value.length; }
+  });
+  document.getElementById('mobileCopyTodoBtn').addEventListener('click', copyTodoToNotes);
 
   // Mobile mode toggle
   document.getElementById('mobileCheckMode').addEventListener('click', function() { setMobileMode('check'); });

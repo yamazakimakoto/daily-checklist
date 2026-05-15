@@ -246,23 +246,52 @@ header h1 { font-size: 18px; font-weight: 700; white-space: nowrap; }
 .row-menu button.danger { color: var(--danger); }
 .row-menu button.danger:hover { background: #fae8e8; }
 
-/* ===== Month Review ===== */
-.month-review-section {
+/* ===== Bottom Section: Today's TODO + Month Review ===== */
+.bottom-section {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
   padding: 16px; border-top: 2px solid var(--border);
 }
+.today-todo-section,
+.month-review-section {
+  padding: 0;
+}
+.today-todo-section h2,
 .month-review-section h2 {
   font-size: 16px; color: var(--primary-dark); margin-bottom: 8px;
 }
+.today-todo-section .section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 8px; flex-wrap: wrap;
+}
+.today-todo-section .section-header h2 { margin-bottom: 0; }
+.today-date {
+  font-size: 13px; font-weight: 500; color: var(--text-light); margin-left: 6px;
+}
+.today-todo-section textarea,
 .month-review-section textarea {
   width: 100%; height: 200px; border: 1px solid var(--border); border-radius: 6px;
   padding: 10px; font-size: 14px; font-family: inherit; resize: vertical; line-height: 1.5;
 }
+.today-todo-section textarea:focus,
 .month-review-section textarea:focus {
   outline: none; border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(91,127,166,0.2);
 }
+.today-todo-section .char-count,
 .month-review-section .char-count {
   font-size: 11px; color: var(--text-light); text-align: right; margin-top: 3px;
+}
+
+.btn-copy-todo {
+  background: var(--primary); color: var(--white); border: none;
+  padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: background 0.15s;
+  white-space: nowrap;
+}
+.btn-copy-todo:hover { background: var(--primary-dark); }
+.btn-copy-todo:active { transform: translateY(1px); }
+.btn-copy-todo-mobile {
+  display: block; width: 100%; padding: 10px; font-size: 14px; margin-top: 8px;
 }
 
 /* ===== Reflection Section ===== */
@@ -400,6 +429,10 @@ header h1 { font-size: 18px; font-weight: 700; white-space: nowrap; }
 .mobile-reflection .char-count { font-size: 12px; color: var(--text-light); text-align: right; margin-top: 4px; }
 
 /* ===== Responsive ===== */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .bottom-section { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 768px) {
   .pc-view { display: none !important; }
   .mobile-view { display: block !important; }
@@ -407,6 +440,7 @@ header h1 { font-size: 18px; font-weight: 700; white-space: nowrap; }
   header h1 { font-size: 15px; }
   .header-actions { width: 100%; justify-content: space-between; }
   .goal-bar { top: 82px; padding: 6px 12px; }
+  .bottom-section { grid-template-columns: 1fr; }
 }
 
 @media (min-width: 769px) {
