@@ -21,7 +21,7 @@ let state = {
   reflections: {},
   monthGoals: {},
   monthReviews: {},
-  todos: {} // YYYY-MM-DD → text
+  todo: '' // 単一フィールド（日付に依存しない・手動更新）
 };
 
 // ===== Storage (IndexedDB primary + localStorage backup) =====
@@ -108,7 +108,8 @@ function loadData() {
     reflections: storageKey('reflections'),
     goal: storageKey('goal'),
     review: storageKey('review'),
-    todos: globalKey('todos')
+    todo: globalKey('todo'),
+    todosLegacy: globalKey('todos') // 旧形式（日付キー）の移行用
   };
 
   return Promise.all([
@@ -117,7 +118,8 @@ function loadData() {
     dualLoad(keys.reflections),
     dualLoad(keys.goal),
     dualLoad(keys.review),
-    dualLoad(keys.todos)
+    dualLoad(keys.todo),
+    dualLoad(keys.todosLegacy)
   ]).then(function(results) {
     var mk = monthKey();
 
@@ -150,11 +152,20 @@ function loadData() {
     // Review
     state.monthReviews[mk] = results[4] || '';
 
-    // Todos (global, keyed by YYYY-MM-DD)
+    // Todo (単一フィールド)
     if (results[5]) {
-      try { state.todos = JSON.parse(results[5]); } catch(e) { state.todos = {}; }
+      state.todo = String(results[5]);
+    } else if (results[6]) {
+      // 旧形式（{YYYY-MM-DD: text}）からの移行: 最も新しい日付の値を採用
+      try {
+        var legacy = JSON.parse(results[6]);
+        var dateKeys = Object.keys(legacy).sort();
+        state.todo = dateKeys.length ? String(legacy[dateKeys[dateKeys.length - 1]] || '') : '';
+      } catch(e) { state.todo = ''; }
+      // 移行後は新キーへ保存（旧キーは念のため残す）
+      if (state.todo) dualSave(globalKey('todo'), state.todo);
     } else {
-      state.todos = {};
+      state.todo = '';
     }
   }).catch(function(e) {
     console.error('データ読み込みエラー:', e);
@@ -164,7 +175,7 @@ function loadData() {
     state.reflections[mk] = {};
     state.monthGoals[mk] = '';
     state.monthReviews[mk] = '';
-    state.todos = {};
+    state.todo = '';
   });
 }
 
@@ -188,56 +199,47 @@ function saveReview() {
   dualSave(storageKey('review'), state.monthReviews[monthKey()] || '');
   markUnsavedBackup();
 }
-function saveTodos() {
-  dualSave(globalKey('todos'), JSON.stringify(state.todos || {}));
+function saveTodo() {
+  dualSave(globalKey('todo'), state.todo || '');
   markUnsavedBackup();
 }
 
-// ===== Today's TODO =====
-function todayDateKey() {
-  var d = new Date();
-  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-}
-
+// ===== Today's TODO（単一フィールド・手動更新） =====
 function todayDateLabel() {
   var d = new Date();
   return (d.getMonth() + 1) + '/' + d.getDate() + '(' + DOW[d.getDay()] + ')';
 }
 
-function getTodayTodo() {
-  return state.todos[todayDateKey()] || '';
+function getTodo() {
+  return state.todo || '';
 }
 
-function setTodayTodo(text) {
-  var key = todayDateKey();
-  if (text) state.todos[key] = text;
-  else delete state.todos[key];
-  saveTodos();
+function setTodo(text) {
+  state.todo = text || '';
+  saveTodo();
 }
 
 function renderTodayTodo() {
-  var val = getTodayTodo();
-  var label = todayDateLabel();
+  var val = getTodo();
   var pcTa = document.getElementById('todayTodo');
   if (pcTa) {
     pcTa.value = val;
     document.getElementById('todoCharCount').textContent = val.length;
-    document.getElementById('todayTodoDate').textContent = label;
   }
   var mTa = document.getElementById('mobileTodayTodo');
   if (mTa) {
     mTa.value = val;
     document.getElementById('mobileTodoCharCount').textContent = val.length;
-    document.getElementById('mobileTodayTodoDate').textContent = label;
   }
 }
 
 function copyTodoToNotes() {
-  var text = (getTodayTodo() || '').trim();
+  var text = (getTodo() || '').trim();
   if (!text) {
     alert('今日のＴＯＤＯが空です。');
     return;
   }
+  // コピー時の見出しには「コピーした日付」を付与（メモ帳での識別用）
   var fullText = '今日のＴＯＤＯ ' + todayDateLabel() + '\n' + text;
 
   // 1) Try Web Share API (iOS Safari: share sheet includes Notes)
@@ -1461,7 +1463,7 @@ function init() {
 
   // Today's TODO (PC)
   document.getElementById('todayTodo').addEventListener('input', function() {
-    setTodayTodo(this.value);
+    setTodo(this.value);
     document.getElementById('todoCharCount').textContent = this.value.length;
     var m = document.getElementById('mobileTodayTodo');
     if (m) { m.value = this.value; document.getElementById('mobileTodoCharCount').textContent = this.value.length; }
@@ -1470,7 +1472,7 @@ function init() {
 
   // Today's TODO (Mobile)
   document.getElementById('mobileTodayTodo').addEventListener('input', function() {
-    setTodayTodo(this.value);
+    setTodo(this.value);
     document.getElementById('mobileTodoCharCount').textContent = this.value.length;
     var p = document.getElementById('todayTodo');
     if (p) { p.value = this.value; document.getElementById('todoCharCount').textContent = this.value.length; }
