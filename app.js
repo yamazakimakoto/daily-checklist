@@ -665,7 +665,7 @@ function renderReflections() {
     var text = getReflection(d);
     html += '<div class="reflection-card">'
       + '<div class="date-label">' + (state.month + 1) + '/' + d + '(' + dow + ')</div>'
-      + '<textarea data-day="' + d + '" maxlength="200" placeholder="振り返りを入力（200字以内）">' + escHtml(text) + '</textarea>'
+      + '<textarea data-day="' + d + '" maxlength="300" placeholder="振り返りを入力（300字以内）">' + escHtml(text) + '</textarea>'
       + '<div class="char-count"><span class="rc-count">' + text.length + '</span>/200</div>'
       + '</div>';
   }
